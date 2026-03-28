@@ -146,8 +146,16 @@ def update_jealousy(delta):
     ## TODO random chance of attack based on jealousy score (different from freakout) on each change 
     ## - <3 to stop it 
 
-    
-    msg = attack()
+   
+    x = state.jealousy
+    x_max = 100
+    x_min = 0
+    probability = (x - x_min) / (x_max - x_min)
+
+    b = random.random() < probability
+
+    if b:
+        msg = attack()
 
 
 
