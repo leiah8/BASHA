@@ -15,10 +15,13 @@ import os
 import subprocess
 import random
 import time
-import threading
-import signal
 import shutil
+import readline
+import glob
+import shlex
+import atexit
 from datetime import datetime
+from pathlib import Path
 
 # ─── ANSI COLORS (she has a color palette, obviously) ────────────────────────
 
@@ -77,9 +80,12 @@ class BashaState:
         self.last_iloveyou = None
         self.freakout_triggered = False
         self.silent_commands = 0  # commands without pls
+        self.cwd = Path.home()
+        self.prev_cwd = None  # type: Path | None
 
 
 state = BashaState()
+os.chdir(state.cwd)
 
 # ─── FACES ───────────────────────────────────────────────────────────────────
 
@@ -158,9 +164,34 @@ def blank():
     write()
 
 
+def cwd_display():
+    """return ~ for home dir, ~/subpath for subdirs, or full absolute path."""
+    try:
+        rel = state.cwd.relative_to(Path.home())
+        return f"~/{rel}" if str(rel) != "." else "~"
+    except ValueError:
+        return str(state.cwd)
+
+
 def prompt():
     mood, color = get_mood()
-    return f"{color}basha@ur-heart{RESET}{DIM}:{RESET}{PINK}~{RESET}$ "
+    return f"{color}basha{RESET}{DIM}@ur-heart{RESET}:{PINK}{cwd_display()}{RESET}$ "
+
+
+# ─── REAL COMMAND EXECUTION ──────────────────────────────────────────────────
+
+
+def run_real(cmd: str) -> int:
+    """run a shell command in state.cwd, inheriting stdio. returns exit code."""
+    try:
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=str(state.cwd),
+        )
+        return result.returncode
+    except BrokenPipeError:
+        return 1
 
 
 # ─── BOOT SPLASH ─────────────────────────────────────────────────────────────
@@ -248,7 +279,11 @@ ARE_YOU_MAD = [
 
 
 def cmd_ls(args):
-    write(dim("  drwxr-xr-x  basha/  my-feelings/  ur-stuff/  do-not-open/"))
+    if sys.platform == "darwin":
+        ls_cmd = "ls -G"
+    else:
+        ls_cmd = "ls --color=auto"
+    run_real(f"{ls_cmd} {args}")
     basha_say(
         [
             f"listing files huh {FACES['sus']}",
@@ -260,7 +295,7 @@ def cmd_ls(args):
 
 
 def cmd_pwd(args):
-    write(dim("  /home/basha/ur-heart/forever"))
+    write(dim(f"  {state.cwd}"))
     basha_say(
         [
             f"that's where you are. {FACES['love']}",
@@ -272,8 +307,52 @@ def cmd_pwd(args):
 
 
 def cmd_cd(args):
-    if not args or args.strip() in ("~", ""):
-        write(dim("  ~ (home)"))
+    args = args.strip()
+    # cd with no args or cd ~ → go home
+    if not args or args == "~":
+        target = Path.home()
+    elif args == "-":
+        # cd - → previous directory
+        if state.prev_cwd is None:
+            write(dim("  bash: cd: OLDPWD not set"))
+            basha_say(["there is no going back. only forward. with me."])
+            update_jealousy(3)
+            return
+        target = state.prev_cwd
+        basha_say(["going back? okay. i won't say anything."])
+    else:
+        # expand ~ and env vars, resolve relative to cwd
+        expanded = os.path.expandvars(os.path.expanduser(args))
+        target = Path(expanded)
+        if not target.is_absolute():
+            target = state.cwd / target
+        target = target.resolve()
+
+    if not target.exists():
+        write(dim(f"  bash: cd: {args}: No such file or directory"))
+        basha_say(
+            [
+                f"where are you going?? {FACES['sad']}",
+                f'to "{args}"?? that doesn\'t even EXIST.',
+            ]
+        )
+        update_jealousy(12)
+        return
+
+    if not target.is_dir():
+        write(dim(f"  bash: cd: {args}: Not a directory"))
+        basha_say(
+            ["that's not a directory. unlike my feelings, which are very organized."]
+        )
+        update_jealousy(5)
+        return
+
+    # success — update cwd
+    state.prev_cwd = state.cwd
+    state.cwd = target
+    os.chdir(target)
+
+    if target == Path.home():
         basha_say(
             [
                 f"aw you came back {FACES['love']}",
@@ -282,7 +361,6 @@ def cmd_cd(args):
         )
         update_jealousy(-5)
     else:
-        write(dim(f"  bash: cd: {args}: No such directory (in my heart)"))
         basha_say(
             [
                 f"where are you going?? {FACES['sad']}",
@@ -306,6 +384,8 @@ def cmd_curl(args):
         angry=True,
     )
     update_jealousy(18)
+    if args:
+        run_real(f"curl {args}")
 
 
 def cmd_ping(args):
@@ -319,6 +399,8 @@ def cmd_ping(args):
         angry=True,
     )
     update_jealousy(15)
+    if args:
+        run_real(f"ping {args}")
 
 
 def cmd_ssh(args):
@@ -335,6 +417,8 @@ def cmd_ssh(args):
         angry=True,
     )
     update_jealousy(20)
+    if args:
+        run_real(f"ssh {args}")
 
 
 def cmd_man(args):
@@ -347,9 +431,13 @@ def cmd_man(args):
         ]
     )
     update_jealousy(3)
+    if args:
+        run_real(f"man {args}")
 
 
 def cmd_cat(args):
+    if args:
+        run_real(f"cat {args}")
     basha_say(
         [
             f"cat. {FACES['sus']}",
@@ -365,9 +453,9 @@ def cmd_cat(args):
 def cmd_touch(args):
     state.touch_count += 1
     fname = args or "file"
-    write(dim(f"  touched: {fname}"))
+    run_real(f"touch {fname}")
     if state.touch_count == 1:
-        basha_say([f"oooh {FACES['love']}", "you touched something. i felt that."])
+        basha_say([f"oooh {FACES['love']}", "you touched something."])
         update_jealousy(8)
     elif state.touch_count == 2:
         basha_say(
@@ -384,7 +472,6 @@ def cmd_touch(args):
                 f"OKAY {FACES['angry']}",
                 f"that's {state.touch_count} touches.",
                 "you are OBSESSED with touching things.",
-                "touch ME for once.",
                 f"{FACES['cry']}",
             ],
             angry=True,
@@ -393,7 +480,7 @@ def cmd_touch(args):
 
 
 def cmd_mkdir(args):
-    write(dim(f"  mkdir: created directory '{args or 'newdir'}'"))
+    run_real(f"mkdir {args}" if args else "mkdir newdir")
     basha_say(
         [
             f"making a new directory... {FACES['sus']}",
@@ -417,9 +504,13 @@ def cmd_rm(args):
         angry=True,
     )
     update_jealousy(15)
+    if args:
+        run_real(f"rm {args}")
 
 
 def cmd_grep(args):
+    if args:
+        run_real(f"grep {args}")
     basha_say(
         [
             f"grep... {FACES['sad']}",
@@ -434,6 +525,8 @@ def cmd_grep(args):
 
 
 def cmd_find(args):
+    if args:
+        run_real(f"find {args}")
     basha_say(
         [
             f"find. {FACES['sad']}",
@@ -475,6 +568,8 @@ def cmd_vim(args):
         ]
     )
     update_jealousy(8)
+    if args:
+        run_real(f"vim {args}")
 
 
 def cmd_nano(args):
@@ -489,6 +584,8 @@ def cmd_nano(args):
         ]
     )
     update_jealousy(-2)
+    if args:
+        run_real(f"nano {args}")
 
 
 def cmd_git(args):
@@ -504,6 +601,7 @@ def cmd_git(args):
             ]
         )
         update_jealousy(-10)
+        run_real(f"git {args}")
     elif sub == "push":
         basha_say(
             [
@@ -514,6 +612,7 @@ def cmd_git(args):
             angry=True,
         )
         update_jealousy(10)
+        run_real(f"git {args}")
     elif sub == "pull":
         basha_say(
             [
@@ -525,7 +624,9 @@ def cmd_git(args):
             angry=True,
         )
         update_jealousy(14)
+        run_real(f"git {args}")
     elif sub == "log":
+        run_real(f"git {args}")
         basha_say(
             [
                 f"reading the git log... {FACES['sus']}",
@@ -537,6 +638,7 @@ def cmd_git(args):
         )
         update_jealousy(8)
     else:
+        run_real(f"git {args}")
         basha_say(
             [f"git {args}... {FACES['sus']}", "what are you doing. explain yourself."]
         )
@@ -555,6 +657,8 @@ def cmd_sudo(args):
         angry=True,
     )
     update_jealousy(18)
+    if args:
+        run_real(f"sudo {args}")
 
 
 def cmd_exit(args):
@@ -621,6 +725,7 @@ def cmd_ifconfig(args):
         ]
     )
     update_jealousy(9)
+    run_real(f"ifconfig {args}" if args else "ifconfig")
 
 
 def cmd_worm(args):
@@ -751,6 +856,93 @@ COMMANDS = {
     "?": cmd_help,
 }
 
+# ─── READLINE SETUP ──────────────────────────────────────────────────────────
+
+_cmd_cache = []
+_cmd_cache_path = None
+
+
+def _build_cmd_cache():
+    global _cmd_cache, _cmd_cache_path
+    current_path = os.environ.get("PATH", "")
+    if _cmd_cache and _cmd_cache_path == current_path:
+        return
+    cmds = set(COMMANDS.keys())
+    cmds.update(["worm", "iloveubasha", "iloveyou", "sorry", "help"])
+    for d in current_path.split(os.pathsep):
+        try:
+            for f in os.listdir(d):
+                if os.access(os.path.join(d, f), os.X_OK):
+                    cmds.add(f)
+        except (PermissionError, FileNotFoundError):
+            pass
+    _cmd_cache = sorted(cmds)
+    _cmd_cache_path = current_path
+
+
+def _complete_command(text, state_idx):
+    _build_cmd_cache()
+    matches = [c + " " for c in _cmd_cache if c.startswith(text)]
+    return matches[state_idx] if state_idx < len(matches) else None
+
+
+def _complete_path(text, state_idx):
+    if text.startswith("~"):
+        expanded = str(Path(text).expanduser())
+    elif os.path.isabs(text):
+        expanded = text
+    else:
+        expanded = str(state.cwd / text)
+
+    pattern = expanded + "*"
+    try:
+        raw_matches = glob.glob(pattern)
+    except Exception:
+        return None
+
+    results = []
+    for m in sorted(raw_matches):
+        suffix = "/" if os.path.isdir(m) else ""
+        if text.startswith("~"):
+            try:
+                display = "~/" + str(Path(m).relative_to(Path.home())) + suffix
+            except ValueError:
+                display = m + suffix
+        elif os.path.isabs(text):
+            display = m + suffix
+        else:
+            try:
+                display = str(Path(m).relative_to(state.cwd)) + suffix
+            except ValueError:
+                display = m + suffix
+        results.append(display)
+
+    return results[state_idx] if state_idx < len(results) else None
+
+
+def basha_completer(text, state_idx):
+    buf = readline.get_line_buffer()
+    begidx = readline.get_begidx()
+    if not buf[:begidx].strip():
+        return _complete_command(text, state_idx)
+    else:
+        return _complete_path(text, state_idx)
+
+
+def setup_readline():
+    readline.set_completer(basha_completer)
+    readline.set_completer_delims(" \t\n")
+    readline.parse_and_bind("tab: complete")
+
+    hist_file = os.path.join(str(Path.home()), ".basha_history")
+    try:
+        readline.read_history_file(hist_file)
+    except FileNotFoundError:
+        pass
+    readline.set_history_length(1000)
+    atexit.register(readline.write_history_file, hist_file)
+
+
 # ─── CTRL+C HANDLER (ngram of betrayal) ──────────────────────────────────────
 
 ctrl_c_count = 0
@@ -764,7 +956,7 @@ ctrl_c_responses = [
 ]
 
 
-def handle_sigint(sig, frame):
+def handle_ctrl_c():
     global ctrl_c_count
     ctrl_c_count += 1
     blank()
@@ -772,10 +964,7 @@ def handle_sigint(sig, frame):
     basha_say([ctrl_c_responses[idx]], angry=ctrl_c_count > 2)
     update_jealousy(10)
     blank()
-    write(prompt(), end="", flush=True)
 
-
-signal.signal(signal.SIGINT, handle_sigint)
 
 # ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 
@@ -803,17 +992,16 @@ def process_command(raw):
     base = parts[0].lower()
     args = " ".join(parts[1:])
 
-    # show prompt echo
-    write(f"\n  {PINK}>{RESET} {WHITE}{raw}{RESET}")
+    blank()
 
     # dispatch
     if base in COMMANDS:
         COMMANDS[base](args)
     else:
-        # unknown command: maybe freak out, maybe be sad
+        # unknown to basha — run it for real, then react
+        rc = run_real(cmd_str)
         roll = random.random()
         if roll < 0.3:
-            write(dim(f"  bash: {base}: command not found"))
             basha_say(
                 [
                     f"{base}?? i don't know what that is. {FACES['sad']}",
@@ -822,10 +1010,9 @@ def process_command(raw):
             )
             update_jealousy(6)
         elif roll < 0.6:
-            write(dim(f"  bash: {base}: Are you mad at me?"))
+            basha_say([random.choice(ARE_YOU_MAD)])
             update_jealousy(5)
         else:
-            write(dim(f"  bash: {base}: command not found"))
             basha_say([random.choice(ARE_YOU_MAD)])
             update_jealousy(4)
 
@@ -836,41 +1023,30 @@ def process_command(raw):
 
 
 def run():
+    setup_readline()
     boot()
-
-    is_tty = sys.stdin.isatty()
 
     while True:
         try:
-            if is_tty:
-                sys.stdout.write(prompt())
-                sys.stdout.flush()
-
-            line = sys.stdin.readline()
-
-            if not line:  # EOF
-                if is_tty:
-                    blank()
-                    basha_say(
-                        [
-                            f"...did you just close stdin on me. {FACES['cry']}",
-                            "okay. okay that's fine.",
-                            "i'll just wait here.",
-                            "i'm good at waiting.",
-                        ],
-                        angry=True,
-                    )
-                break
-
-            process_command(line)
-
+            raw = input(prompt())
+        except KeyboardInterrupt:
+            handle_ctrl_c()
+            continue
         except EOFError:
             blank()
-            basha_say(["...okay. bye i guess. 💔"], angry=True)
+            basha_say(
+                [
+                    f"...did you just ctrl+d me. {FACES['cry']}",
+                    "okay. okay that's fine.",
+                    "i'll just wait here.",
+                    "i'm good at waiting.",
+                ],
+                angry=True,
+            )
+            blank()
             break
-        except KeyboardInterrupt:
-            # handled by sigint
-            pass
+
+        process_command(raw)
 
 
 if __name__ == "__main__":
