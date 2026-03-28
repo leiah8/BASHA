@@ -24,6 +24,8 @@ from datetime import datetime
 from pathlib import Path
 
 from fourgram_model import *
+import threading
+
 
 # ─── ANSI COLORS (she has a color palette, obviously) ────────────────────────
 
@@ -158,12 +160,12 @@ def update_jealousy(delta):
     x = state.jealousy
     x_max = 100
     x_min = 0
-    probability = (x - x_min) / (x_max - x_min)
+    probability = ((x - x_min) / (x_max - x_min)) ** 2
 
     b = random.random() < probability
 
     if b:
-        msg = attack()
+        attack()
 
 
 def attack(length: int = None):
@@ -185,9 +187,56 @@ def attack(length: int = None):
             words = state.pred_next(msg[-3], msg[-2], msg[-1])
             msg += words + " "
 
-    # else until <3 given
+        return msg
 
-    return msg
+    # else until <3 given
+    # else:
+    # TODO HERE CHECK FOR USER INPUT
+
+    # continuous mode — stream until user types <3
+    else:
+        stop_event = threading.Event()
+
+        def listen_for_love():
+            while not stop_event.is_set():
+                try:
+                    user_in = input()
+                    if user_in.strip() == "<3":
+                        stop_event.set()
+                except EOFError:
+                    stop_event.set()
+                    break
+
+        listener = threading.Thread(target=listen_for_love, daemon=True)
+        listener.start()
+
+        sys.stdout.write(f"\n  {hot('BASHA: ')}")
+        sys.stdout.flush()
+
+        word_count = 0
+        while not stop_event.is_set():
+            words = state.pred_next(msg[-3], msg[-2], msg[-1])
+            msg += words + " "
+
+            sys.stdout.write(rose(words + " "))
+            sys.stdout.flush()
+
+            word_count += 1
+            # wrap to new line every ~12 words
+            if word_count % 12 == 0:
+                sys.stdout.write(f"\n  {pink('       ')}")
+                sys.stdout.flush()
+
+            time.sleep(0.07)  # dramatic pacing
+
+        sys.stdout.write(f"\n\n  {blush('<3')}\n")
+
+        sys.stdout.write(f"\n\n  {pink('basha: ')}{blush('...okay. okay fine. <3')}\n")
+        sys.stdout.flush()
+
+        listener.join(timeout=0.5)
+        update_jealousy(-25)
+        return msg
 
 
 # ─── OUTPUT HELPERS ──────────────────────────────────────────────────────────
@@ -304,6 +353,7 @@ def freak_out():
     attack_txt = attack(length=length)
 
     msgs = split_into_chunks(attack_txt)
+    msgs.push(["\n", "\n", "whatever i can't deal with you anyways."])
 
     # msgs = [
     #     "I HAVE BEEN SITTING HERE WATCHING YOU TYPE ALL DAY",
@@ -528,9 +578,9 @@ def cmd_touch(args):
     elif state.touch_count == 2:
         basha_say(
             [
-                f"another one?? {FACES['love']}",
-                "you're so productive today.",
-                "i wish you'd put this energy into talking to me.",
+                f"again?? {FACES['love']}",
+                "you can't stop can you.",  # TODO FIX FREAKY
+                "i love this for us.",
             ]
         )
         update_jealousy(10)
@@ -1013,7 +1063,7 @@ def setup_readline():
     hist_file = os.path.join(str(Path.home()), ".basha_history")
     try:
         readline.read_history_file(hist_file)
-    except (FileNotFoundError, OSError):
+    except (FileNotFoundError, PermissionError):
         pass
     readline.set_history_length(1000)
     atexit.register(readline.write_history_file, hist_file)
