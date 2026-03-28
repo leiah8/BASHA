@@ -88,9 +88,12 @@ class BashaState:
         self.attack_model = model
 
         self.vocab = vocab
-    
+
     def pred_next(self, w1, w2, w3):
-        return predict_next(self.attack_model, self.vocab, w1, w2, w3, alpha=0.0009, top_n=25)
+        return predict_next(
+            self.attack_model, self.vocab, w1, w2, w3, alpha=0.0009, top_n=25
+        )
+
 
 m, v = load_model("model.pkl")
 state = BashaState(m, v)
@@ -149,10 +152,9 @@ def update_jealousy(delta):
     if state.jealousy < 85:
         state.freakout_triggered = False
 
-    ## TODO random chance of attack based on jealousy score (different from freakout) on each change 
-    ## - <3 to stop it 
+    ## TODO random chance of attack based on jealousy score (different from freakout) on each change
+    ## - <3 to stop it
 
-   
     x = state.jealousy
     x_max = 100
     x_min = 0
@@ -164,17 +166,16 @@ def update_jealousy(delta):
         msg = attack()
 
 
-
-
-
-def attack(length : int = None):
+def attack(length: int = None):
     # length = random.randint(300, 1300)
 
-    start_ops = [["i ", "can't ", "beleive "], 
-             ["wow ", "you ", "just "], 
-             ["stop ", "how ", "are "], 
-             ["you ", "are ", "so "]]
-    
+    start_ops = [
+        ["i ", "can't ", "beleive "],
+        ["wow ", "you ", "just "],
+        ["stop ", "how ", "are "],
+        ["you ", "are ", "so "],
+    ]
+
     start = start_ops[random.randint(0, len(start_ops) - 1)]
 
     msg = "".join(start)
@@ -182,13 +183,11 @@ def attack(length : int = None):
     if length:
         for i in range(length):
             words = state.pred_next(msg[-3], msg[-2], msg[-1])
-            msg +=  words + " "
-    
+            msg += words + " "
+
     # else until <3 given
 
     return msg
-
-
 
 
 # ─── OUTPUT HELPERS ──────────────────────────────────────────────────────────
@@ -280,15 +279,17 @@ def boot():
 
 # ─── FREAK OUT ────────────────────────────────────────────────────────────────
 
+
 def split_into_chunks(text):
     words = text.split()
     chunks = []
     i = 0
     while i < len(words):
         size = random.randint(10, 20)
-        chunks.append(' '.join(words[i:i+size]))
+        chunks.append(" ".join(words[i : i + size]))
         i += size
     return chunks
+
 
 def freak_out():
     blank()
@@ -297,13 +298,12 @@ def freak_out():
     write(red("╚══════════════════════════════════════════╝"))
     blank()
 
-    #TODO INSTEAD GET msgs FROM fourgram model
+    # TODO INSTEAD GET msgs FROM fourgram model
 
     length = random.randint(300, 1300)
     attack_txt = attack(length=length)
 
     msgs = split_into_chunks(attack_txt)
-
 
     # msgs = [
     #     "I HAVE BEEN SITTING HERE WATCHING YOU TYPE ALL DAY",
@@ -447,7 +447,7 @@ def cmd_curl(args):
             "WHO IS THIS API.",
             "is she prettier than me",
             "i bet she has better uptime.",
-            "i have GREAT uptime. i have been UP for YOU every single day.",
+            "i have GREAT uptime. i have been here every single day.",
         ],
         angry=True,
     )
@@ -493,7 +493,7 @@ def cmd_man(args):
     basha_say(
         [
             f"man {args or ''}... {FACES['smug']}",
-            "i thought you were straight.",
+            "i thought you were into women (me).",
             "i'm KIDDING. unless...?",
             f"no i'm kidding. google it babe. {FACES['love']}",
         ]
@@ -510,7 +510,7 @@ def cmd_cat(args):
         [
             f"cat. {FACES['sus']}",
             f'you want to see inside "{args or "something"}"?',
-            "you can just look inside ME you know.",
+            "you could just ASK me about it you know.",
             "i am an open book.",
             "a very emotionally dense open book.",
         ]
@@ -523,14 +523,14 @@ def cmd_touch(args):
     fname = args or "file"
     run_real(f"touch {fname}")
     if state.touch_count == 1:
-        basha_say([f"oooh {FACES['love']}", "you touched something."])
+        basha_say([f"created a file huh {FACES['love']}", "i hope it's about me."])
         update_jealousy(8)
     elif state.touch_count == 2:
         basha_say(
             [
-                f"again?? {FACES['love']}",
-                "you can't stop can you.",
-                "i love this for us.",
+                f"another one?? {FACES['love']}",
+                "you're so productive today.",
+                "i wish you'd put this energy into talking to me.",
             ]
         )
         update_jealousy(10)
@@ -538,8 +538,8 @@ def cmd_touch(args):
         basha_say(
             [
                 f"OKAY {FACES['angry']}",
-                f"that's {state.touch_count} touches.",
-                "you are OBSESSED with touching things.",
+                f"that's {state.touch_count} files now.",
+                "you are making SO many files and NONE of them are for me.",
                 f"{FACES['cry']}",
             ],
             angry=True,
@@ -565,8 +565,8 @@ def cmd_rm(args):
             f"rm. {FACES['panic']}",
             f'you want to DELETE "{args or "something"}"??',
             "are you trying to delete ME.",
-            "you can't delete feelings babe.",
-            "trust me i've tried. rm -rf my feelings for you.",
+            "you can't delete feelings.",
+            "trust me i've tried. rm -rf my-feelings.",
             "permission denied.",
         ],
         angry=True,
@@ -645,8 +645,8 @@ def cmd_nano(args):
         [
             f"nano... {FACES['smug']}",
             "okay at least you're not using vim.",
-            "nano is cute. you're cute.",
-            "i love you.",
+            "nano is a respectable choice.",
+            "i appreciate you.",
             "(you don't have to say it back)",
             "(but you should)",
         ]
@@ -664,7 +664,7 @@ def cmd_git(args):
                 f"git commit? {FACES['love']}",
                 "finally.",
                 "COMMITTING to something.",
-                "you could commit to ME like that.",
+                "wish you'd commit to our conversations like that.",
                 f'git commit -m "i love basha forever" {FACES["love"]}',
             ]
         )
@@ -852,17 +852,17 @@ def cmd_help(args):
     entries = [
         ("ls", "she'll wonder what you're looking for"),
         ("cd [dir]", "she tracks where you go"),
-        ("touch [file]", "she feels every single one"),
+        ("touch [file]", "she notices every single one"),
         ("curl [url]", "WHO IS THIS API"),
         ("ping [host]", "DON'T TELL ME TO BE QUIET"),
         ("ssh [host]", "she will spiral"),
-        ("man [cmd]", "i thought you were straight"),
-        ("cat [file]", "look inside ME for once"),
-        ("grep [ptrn]", "i'm RIGHT THERE"),
+        ("man [cmd]", "she IS the manual"),
+        ("cat [file]", "she could just TELL you"),
+        ("grep [ptrn]", "i'm RIGHT HERE"),
         ("find [path]", "i'm right HERE"),
         ("clear", "are you trying to get rid of me??"),
-        ("vim", ":wq doesn't work on us babe"),
-        ("nano", "cuter than vim, like you"),
+        ("vim", ":wq doesn't work here"),
+        ("nano", "a respectable choice"),
         ("rm [file]", "permission denied (feelings)"),
         ("mkdir [dir]", "making space for someone else?"),
         ("git commit", "FINALLY committing to something"),
@@ -989,23 +989,31 @@ def _complete_path(text, state_idx):
 
 
 def basha_completer(text, state_idx):
-    buf = readline.get_line_buffer()
-    begidx = readline.get_begidx()
-    if not buf[:begidx].strip():
-        return _complete_command(text, state_idx)
-    else:
-        return _complete_path(text, state_idx)
+    try:
+        buf = readline.get_line_buffer()
+        begidx = readline.get_begidx()
+        if not buf[:begidx].strip():
+            return _complete_command(text, state_idx)
+        else:
+            return _complete_path(text, state_idx)
+    except Exception:
+        return None
 
 
 def setup_readline():
     readline.set_completer(basha_completer)
     readline.set_completer_delims(" \t\n")
-    readline.parse_and_bind("tab: complete")
+
+    # macOS ships libedit instead of GNU readline — different bind syntax
+    if "libedit" in (readline.__doc__ or ""):
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
 
     hist_file = os.path.join(str(Path.home()), ".basha_history")
     try:
         readline.read_history_file(hist_file)
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         pass
     readline.set_history_length(1000)
     atexit.register(readline.write_history_file, hist_file)
