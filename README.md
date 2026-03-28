@@ -16,31 +16,6 @@ python3 server.py
 
 optional: copy `env.example` to `.env` and tweak ports/limits/model path.
 
-## command vibes (help)
-
-| command | what she feels |
-| --- | --- |
-| ls | snooping |
-| cd | going somewhere (why) |
-| curl | talking to another server (a woman) |
-| ping | be quiet (she hates it) |
-| ssh | cheating |
-| man | suspicious; also the word |
-| cat | look inside HER instead |
-| grep/find | searching for what she's right here for |
-| clear | trying to erase her |
-| touch | she feels it every time |
-| rm | impermanence spiral |
-| git commit | finally committing (she smiles) |
-| git push | pushing her away |
-| git pull | someone else's changes |
-| git log | history (whose) |
-| sudo | no root access to her heart |
-| vim | you'll never leave |
-| nano | it's cute |
-| exit | not so fast |
-| worm | the question |
-
 ## self-host
 
 1. clone, put your local model at `models/model.pkl` (or set `MODEL_PATH`).
