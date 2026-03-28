@@ -5,6 +5,9 @@ Usage:
   Load and run:    python fourgram_model.py --load model.pkl
 """
 
+##  python3 fourgram_model.py training.txt --alpha 0.55 --save model.pkl
+
+
 import sys
 import re
 import pickle
