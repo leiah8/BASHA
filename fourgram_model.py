@@ -5,13 +5,17 @@ Usage:
   Load and run:    python fourgram_model.py --load model.pkl
 """
 
-##  python3 fourgram_model.py training.txt --alpha 0.55 --save model.pkl
+##  python3 fourgram_model.py training.txt --alpha 0.0009 --save model.pkl
+
+## tested 0.55, 0.1, 0.01, 0.001, 0.0003, 0.0009 and got best results 
 
 
 import sys
 import re
 import pickle
 from collections import defaultdict, Counter
+
+import random
 
 
 def load_text(filepath: str) -> str:
@@ -50,7 +54,7 @@ def predict_next(
     w2: str,
     w3: str,
     top_n: int = 5,
-    alpha: float = 1.0,
+    alpha: float = 0.001,
 ) -> list[tuple]:
     """
     Given a 3-word context, return the top_n predicted next words with
@@ -79,7 +83,16 @@ def predict_next(
         for word in vocab
     }
     top = sorted(scored.items(), key=lambda x: x[1], reverse=True)[:top_n]
-    return top
+
+    # i = random.randint(0, len(top)-1)
+    # return top[i][0]
+
+    words_list = [w for w, _ in top]
+    weights    = [p for _, p in top]
+    return random.choices(words_list, weights=weights, k=1)[0]
+
+
+    # return top
 
 
 def save_model(model: dict, vocab: set, filepath: str):
@@ -111,10 +124,14 @@ def interactive_mode(model: dict, vocab: set, alpha: float = 1.0):
         if len(words) != 3:
             print("  Please enter exactly 3 words.\n")
             continue
-        predictions = predict_next(model, vocab, *words, alpha=alpha)
-        print(f"  Top predictions after '{' '.join(words)}':")
-        for word, prob in predictions:
-            print(f"    {word:<20} {prob:.4%}")
+        # predictions = predict_next(model, vocab, *words, alpha=alpha)
+        # print(f"  Top predictions after '{' '.join(words)}':")
+        # for word, prob in predictions:
+        #     print(f"    {word:<20} {prob:.4%}")
+        # print()
+
+        pred = predict_next(model, vocab, *words, alpha=alpha)
+        print("Prediction: ", pred)
         print()
 
 

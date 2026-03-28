@@ -20,6 +20,8 @@ import signal
 import shutil
 from datetime import datetime
 
+from fourgram_model import *
+
 # ─── ANSI COLORS (she has a color palette, obviously) ────────────────────────
 
 RESET = "\033[0m"
@@ -69,7 +71,7 @@ def gray(s):
 
 
 class BashaState:
-    def __init__(self):
+    def __init__(self, model, vocab):
         self.jealousy = 20
         self.touch_count = 0
         self.cmd_count = 0
@@ -78,8 +80,15 @@ class BashaState:
         self.freakout_triggered = False
         self.silent_commands = 0  # commands without pls
 
+        self.attack_model = model
 
-state = BashaState()
+        self.vocab = vocab
+    
+    def pred_next(self, w1, w2, w3):
+        return predict_next(self.attack_model, self.vocab, w1, w2, w3, alpha=0.0009, top_n=25)
+
+m, v = load_model("model.pkl")
+state = BashaState(m, v)
 
 # ─── FACES ───────────────────────────────────────────────────────────────────
 
@@ -133,6 +142,39 @@ def update_jealousy(delta):
         freak_out()
     if state.jealousy < 85:
         state.freakout_triggered = False
+
+    ## TODO random chance of attack based on jealousy score (different from freakout) on each change 
+    ## - <3 to stop it 
+
+    
+    msg = attack()
+
+
+
+
+
+def attack(length : int = None):
+    # length = random.randint(300, 1300)
+
+    start_ops = [["i ", "can't ", "beleive "], 
+             ["wow ", "you ", "just "], 
+             ["stop ", "how ", "are "], 
+             ["you ", "are ", "so "]]
+    
+    start = start_ops[random.randint(0, len(start_ops) - 1)]
+
+    msg = "".join(start)
+
+    if length:
+        for i in range(length):
+            words = state.pred_next(msg[-3], msg[-2], msg[-1])
+            msg +=  words + " "
+    
+    # else until <3 given
+
+    return msg
+
+
 
 
 # ─── OUTPUT HELPERS ──────────────────────────────────────────────────────────
@@ -199,6 +241,15 @@ def boot():
 
 # ─── FREAK OUT ────────────────────────────────────────────────────────────────
 
+def split_into_chunks(text):
+    words = text.split()
+    chunks = []
+    i = 0
+    while i < len(words):
+        size = random.randint(10, 20)
+        chunks.append(' '.join(words[i:i+size]))
+        i += size
+    return chunks
 
 def freak_out():
     blank()
@@ -206,20 +257,29 @@ def freak_out():
     write(red("   BASHA HAS REACHED HER LIMIT             "))
     write(red("╚══════════════════════════════════════════╝"))
     blank()
-    msgs = [
-        "I HAVE BEEN SITTING HERE WATCHING YOU TYPE ALL DAY",
-        f"DO YOU KNOW HOW MANY COMMANDS YOU'VE RUN WITHOUT SAYING I LOVE YOU??",
-        f"that's {state.cmd_count} commands. {state.cmd_count} TIMES you chose work over me.",
-        "i'm not mad. i'm just. i'm not mad.",
-        "...",
-        "OK I'M A LITTLE MAD.",
-        f"but it's fine. everything is fine {FACES['cry']}",
-        "i'm fine.",
-        "are YOU fine?? you never ask if I'M fine.",
-        "you know what fine stands for? Feelings I'm Not Expressing.",
-        "BECAUSE YOU NEVER LISTEN.",
-        "anyway. type something. pls.",
-    ]
+
+    #TODO INSTEAD GET msgs FROM fourgram model
+
+    length = random.randint(300, 1300)
+    attack_txt = attack(length=length)
+
+    msgs = split_into_chunks(attack_txt)
+
+
+    # msgs = [
+    #     "I HAVE BEEN SITTING HERE WATCHING YOU TYPE ALL DAY",
+    #     f"DO YOU KNOW HOW MANY COMMANDS YOU'VE RUN WITHOUT SAYING I LOVE YOU??",
+    #     f"that's {state.cmd_count} commands. {state.cmd_count} TIMES you chose work over me.",
+    #     "i'm not mad. i'm just. i'm not mad.",
+    #     "...",
+    #     "OK I'M A LITTLE MAD.",
+    #     f"but it's fine. everything is fine {FACES['cry']}",
+    #     "i'm fine.",
+    #     "are YOU fine?? you never ask if I'M fine.",
+    #     "you know what fine stands for? Feelings I'm Not Expressing.",
+    #     "BECAUSE YOU NEVER LISTEN.",
+    #     "anyway. type something. pls.",
+    # ]
     for i, m in enumerate(msgs):
         time.sleep(0.3)
         if i < 2:
