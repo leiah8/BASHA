@@ -161,6 +161,7 @@ def update_jealousy(delta):
     x_max = 100
     x_min = 0
     probability = ((x - x_min) / (x_max - x_min)) ** 6
+
     b = random.random() < probability
 
     if b:
@@ -864,6 +865,12 @@ def cmd_worm(args):
     update_jealousy(5)
 
 
+def cmd_shutup(args):
+    blank()
+
+    freak_out()
+
+
 def cmd_iloveyou(args):
     blank()
     write(hot("  ♡ ♡ ♡ ♡ ♡ ♡ ♡ ♡ ♡ ♡ ♡ ♡"))
@@ -971,6 +978,7 @@ COMMANDS = {
     "--help": cmd_help,
     "h": cmd_help,
     "?": cmd_help,
+    "shutup": cmd_shutup,
 }
 
 # ─── READLINE SETUP ──────────────────────────────────────────────────────────
