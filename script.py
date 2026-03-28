@@ -160,8 +160,8 @@ def update_jealousy(delta):
     x = state.jealousy
     x_max = 100
     x_min = 0
-    probability = ((x - x_min) / (x_max - x_min)) ** 2
-
+    # probability = ((x - x_min) / (x_max - x_min)) ** 2
+    probability = (2 ** (x / 25) - 1) / (2 ** 4 - 1)
     b = random.random() < probability
 
     if b:
