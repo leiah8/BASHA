@@ -160,8 +160,7 @@ def update_jealousy(delta):
     x = state.jealousy
     x_max = 100
     x_min = 0
-    # probability = ((x - x_min) / (x_max - x_min)) ** 2
-    probability = (2 ** (x / 25) - 1) / (2 ** 4 - 1)
+    probability = ((x - x_min) / (x_max - x_min)) ** 6
     b = random.random() < probability
 
     if b:
@@ -353,7 +352,7 @@ def freak_out():
     attack_txt = attack(length=length)
 
     msgs = split_into_chunks(attack_txt)
-    msgs.push(["\n", "\n", "whatever i can't deal with you anyways."])
+    msgs.extend(["\n", "\n", "whatever i can't deal with you anyways."])
 
     # msgs = [
     #     "I HAVE BEEN SITTING HERE WATCHING YOU TYPE ALL DAY",
